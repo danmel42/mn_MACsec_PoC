@@ -1,0 +1,78 @@
+# Copyright 2024 Daniel Melzer
+# Licensed under the BSD 3-Clause License.
+# SPDX-License-Identifier: BSD-3-Clause
+
+name: mn_MACsec_PoC
+
+prefix: __lab-name
+
+mgmt:
+  network: mn_MACsec_PoC_mgmt                # management network name
+  ipv4-subnet: 172.100.133.0/24       # ipv4 range
+  ipv6-subnet: 2001:172:100:133::/80  # ipv6 range (optional)
+
+topology:
+  defaults:
+    kind: vr-sros
+
+  kinds:
+    vr-sros:
+      image: registry.intra.miriquidi-net.works:9443/clab/nokia_sros:24.10.R1
+      type: sr-1x-48d
+      license: ./license_sr.key
+    linux:
+      image: ghcr.io/hellt/network-multitool
+  nodes:
+    ### IXP-Fabric ###
+    ixp01:
+      mgmt-ipv4: 172.100.133.11
+      startup-config: startup/ixp01.cfg
+
+    ### Customer Router ###
+    cpe01:
+      mgmt-ipv4: 172.100.133.21
+      startup-config: startup/cpe01.cfg
+
+    ### CSP Router ###
+    csp01:
+      mgmt-ipv4: 172.100.133.31
+      startup-config: startup/csp01.cfg
+    csp02:
+      mgmt-ipv4: 172.100.133.32
+      startup-config: startup/csp02.cfg
+
+    ### CLIENTS ###
+    csp-client01:
+      kind: linux
+      mgmt-ipv4: 172.100.133.101
+      binds:
+      exec:
+        - ip address add 172.17.1.2/24 dev eth1
+        - ip -6 address add 2002::172:17:1:2/96 dev eth1
+        - iperf3 -s -p 5201 -D > iperf_4.2_1.1.log
+    csp-client02:
+      kind: linux
+      mgmt-ipv4: 172.100.133.102
+      binds:
+      exec:
+        - ip address add 172.17.2.2/24 dev eth1
+        - ip -6 address add 2002::172:17:2:2/96 dev eth1
+        - iperf3 -s -p 5201 -D > iperf_4.2_1.1.log
+    cpe-client01:
+      kind: linux
+      mgmt-ipv4: 172.100.133.110
+      binds:
+      exec:
+        - ip address add 172.17.1.1/24 dev eth1
+        - ip address add 172.17.2.1/24 dev eth2
+        - ip -6 address add 2002::172:17:1:1/96 dev eth1
+        - ip -6 address add 2002::172:17:2:1/96 dev eth2
+        - iperf3 -s -p 5202 -D > iperf_3.2_2.1.log
+  links:
+    - endpoints: ["csp-client01:eth1", "csp01:eth2"]
+    - endpoints: ["ixp01:eth2", "csp01:eth1"]
+    - endpoints: ["ixp01:eth1", "cpe01:eth1"]
+    - endpoints: ["cpe-client01:eth1", "cpe01:eth2"]
+    - endpoints: ["csp-client02:eth1", "csp02:eth2"]
+    - endpoints: ["ixp01:eth3", "csp02:eth1"]
+    - endpoints: ["cpe-client01:eth2", "cpe01:eth3"]
